@@ -1,7 +1,9 @@
 import streamlit as st
 import pandas as pd
+import random
+import string
 
-# 1. Função lógica original
+# 1. Função lógica original GTIN
 def calcular_digito_gtin(sequencia):
     numeros = [int(d) for d in str(sequencia)][::-1]
     soma = 0
@@ -12,11 +14,24 @@ def calcular_digito_gtin(sequencia):
     proximo_multiplo_10 = (soma + 9) // 10 * 10
     return proximo_multiplo_10 - soma
 
-# 2. Configuração da Página
-st.set_page_config(page_title="Gerador GTIN-13 Pro", page_icon="🔢")
-st.title("🔢 Gerador de GTIN Customizado")
+# 2. Função lógica SKU (LNLNLNLNL)
+def gerar_sku_aleatorio():
+    letras = string.ascii_uppercase
+    numeros = string.digits
+    sku = ""
+    for i in range(9):
+        if i % 2 == 0: # Letra
+            sku += random.choice(letras)
+        else:          # Número
+            sku += random.choice(numeros)
+    return sku
 
-tab1, tab2 = st.tabs(["Gerar Único", "Gerar em Massa (Data Manual)"])
+# 3. Configuração da Página
+st.set_page_config(page_title="Gerador GTIN-13 Pro", page_icon="🔢")
+st.title("🔢 Gerador de Códigos Customizado")
+
+# Adicionado a terceira aba "Gerar SKU"
+tab1, tab2, tab3 = st.tabs(["Gerar Único", "Gerar em Massa (GTIN)", "Gerar SKU"])
 
 # --- ABA 1: GERAR ÚNICO ---
 with tab1:
@@ -27,17 +42,10 @@ with tab1:
         gtin_completo = f"{entrada}{digito}"
         st.success(f"Dígito Verificador: {digito}")
         st.code(gtin_completo)
-        
-        if st.button("Copiar Código"):
-            st.copy_to_clipboard(gtin_completo)
-            st.toast("Copiado!", icon="✅")
 
-# --- ABA 2: GERAR EM MASSA ---
+# --- ABA 2: GERAR EM MASSA (GTIN) ---
 with tab2:
-    st.subheader("Configuração da Estrutura")
-    st.write("Monte a data e a sequência para o lote:")
-
-    # Seleção Manual de Data
+    st.subheader("Configuração da Estrutura GTIN")
     col_data1, col_data2, col_data3 = st.columns(3)
     
     with col_data1:
@@ -47,46 +55,52 @@ with tab2:
     with col_data3:
         mes_input = st.number_input("Mês", min_value=1, max_value=12, value=3)
 
-    # Formatação com zeros à esquerda
     ano_str = str(ano_input)
     dia_str = str(dia_input).zfill(2)
     mes_str = str(mes_input).zfill(2)
-    
     prefixo_custom = f"{ano_str}{dia_str}{mes_str}"
-    st.info(f"O prefixo será: **{prefixo_custom}**")
 
     col_seq1, col_seq2 = st.columns(2)
     with col_seq1:
         inicio_seq = st.number_input("Iniciar sequência em:", min_value=0, max_value=9999, value=800)
     with col_seq2:
-        quantidade = st.number_input("Quantidade (Máx 100):", min_value=1, max_value=100, value=10)
+        quantidade = st.number_input("Quantidade GTIN (Máx 100):", min_value=1, max_value=100, value=10)
 
-    if st.button("Gerar Lote para Planilha"):
+    if st.button("Gerar Lote GTIN"):
         lista_gtins = []
-        
         for i in range(quantidade):
             sequencial = str(inicio_seq + i).zfill(4)
             base_12 = f"{prefixo_custom}{sequencial}"
             digito = calcular_digito_gtin(base_12)
-            
-            # Gerando o código puro, sem a aspa de proteção
             lista_gtins.append(f"{base_12}{digito}")
         
-        df = pd.DataFrame(lista_gtins, columns=["GTIN-13 Gerado"])
+        df_gtin = pd.DataFrame(lista_gtins, columns=["GTIN-13 Gerado"])
+        st.dataframe(df_gtin, use_container_width=True)
+
+# --- ABA 3: GERAR SKU (NOVA) ---
+with tab3:
+    st.subheader("Gerador de SKU")
+    st.write("Gera códigos de 9 caracteres seguindo o padrão: **Letra-Número-Letra...**")
+    
+    qtd_sku = st.slider("Quantidade de SKUs para gerar:", min_value=1, max_value=100, value=50)
+    
+    if st.button("Gerar SKUs"):
+        lista_skus = [gerar_sku_aleatorio() for _ in range(qtd_sku)]
         
-        st.write("### Resultados:")
-        st.dataframe(df, use_container_width=True, hide_index=True)
+        # Exibe em uma caixa de texto para fácil cópia
+        st.text_area("SKUs Gerados:", value="\n".join(lista_skus), height=300)
         
-        # Download do CSV limpo
-        csv = df.to_csv(index=False).encode('utf-8')
+        # Opção de baixar como CSV
+        df_sku = pd.DataFrame(lista_skus, columns=["SKU Gerado"])
+        csv_sku = df_sku.to_csv(index=False).encode('utf-8')
         st.download_button(
-            label="📥 Baixar Planilha CSV",
-            data=csv,
-            file_name=f"gtins_{prefixo_custom}.csv",
+            label="📥 Baixar SKUs em CSV",
+            data=csv_sku,
+            file_name="skus_gerados.csv",
             mime="text/csv"
         )
 
-# 3. Rodapé
+# 4. Rodapé
 st.markdown(
     """
     <style>
@@ -101,7 +115,7 @@ st.markdown(
     }
     </style>
     <div class="footer">
-        Criado e pensado por Pedro Parra.
+        &copy; 2026 - Criado e pensado por <a href="https://www.instagram.com/peehnrq" target="_blank">Pedro Parra</a>.
     </div>
     """,
     unsafe_allow_html=True
