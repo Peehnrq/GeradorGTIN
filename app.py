@@ -1,31 +1,39 @@
 import streamlit as st
 import pandas as pd
 
-# 1. Sua função lógica original [cite: 1]
+# 1. Função lógica original
 def calcular_digito_gtin(sequencia):
     numeros = [int(d) for d in str(sequencia)][::-1]
     soma = 0
     for i, num in enumerate(numeros):
-        # Pesos: posições pares peso 3, ímpares peso 1 [cite: 1]
+        # Pesos: posições pares peso 3, ímpares peso 1
         peso = 3 if i % 2 == 0 else 1
         soma += num * peso
     proximo_multiplo_10 = (soma + 9) // 10 * 10
     return proximo_multiplo_10 - soma
 
-# 2. Configuração da Página [cite: 1]
+# 2. Configuração da Página
 st.set_page_config(page_title="Gerador GTIN-13 Pro", page_icon="🔢")
 st.title("🔢 Gerador de GTIN Customizado")
 
 tab1, tab2 = st.tabs(["Gerar Único", "Gerar em Massa (Data Manual)"])
 
+# --- ABA 1: GERAR ÚNICO ---
 with tab1:
     st.write("Digite os **12 primeiros dígitos** manualmente.")
     entrada = st.text_input("Sequência de 12 dígitos:", max_chars=12, key="unico")
     if entrada and len(entrada) == 12 and entrada.isdigit():
         digito = calcular_digito_gtin(entrada)
+        gtin_completo = f"{entrada}{digito}"
         st.success(f"Dígito Verificador: {digito}")
-        st.code(f"{entrada}{digito}")
+        st.code(gtin_completo)
+        
+        # Função de cópia nativa do Streamlit
+        if st.button("Copiar Código"):
+            st.copy_to_clipboard(gtin_completo)
+            st.toast("Copiado!", icon="✅")
 
+# --- ABA 2: GERAR EM MASSA ---
 with tab2:
     st.subheader("Configuração da Estrutura")
     st.write("Monte a data e a sequência para o lote:")
@@ -40,39 +48,39 @@ with tab2:
     with col_data3:
         mes_input = st.number_input("Mês", min_value=1, max_value=12, value=3)
 
-    # Formatação das strings com zeros à esquerda (zfill)
+    # Formatação com zeros à esquerda
     ano_str = str(ano_input)
     dia_str = str(dia_input).zfill(2)
     mes_str = str(mes_input).zfill(2)
     
     prefixo_custom = f"{ano_str}{dia_str}{mes_str}"
-    st.info(f"O prefixo será: **{prefixo_custom}** (8 dígitos)")
+    st.info(f"O prefixo será: **{prefixo_custom}**")
 
-    # Configuração do Sequencial e Quantidade
     col_seq1, col_seq2 = st.columns(2)
     with col_seq1:
         inicio_seq = st.number_input("Iniciar sequência em:", min_value=0, max_value=9999, value=800)
     with col_seq2:
         quantidade = st.number_input("Quantidade (Máx 100):", min_value=1, max_value=100, value=10)
 
-    if st.button("Gerar Lote Customizado"):
-        lista_gtins = []
+    if st.button("Gerar Lote para Planilha"):
+        lista_para_df = []
         
         for i in range(quantidade):
-            # Sequencial sempre com 4 dígitos para fechar os 12 totais
             sequencial = str(inicio_seq + i).zfill(4)
             base_12 = f"{prefixo_custom}{sequencial}"
-            
-            # Cálculo do dígito [cite: 1]
             digito = calcular_digito_gtin(base_12)
-            lista_gtins.append(f"{base_12}{digito}")
+            
+            # Adiciona a aspa simples para proteger o formato no Excel
+            codigo_com_protecao = f"'{base_12}{digito}"
+            lista_para_df.append(codigo_com_protecao)
         
-        df = pd.DataFrame(lista_gtins, columns=["GTIN-13 Gerado"])
+        df = pd.DataFrame(lista_para_df, columns=["GTIN-13 Gerado"])
         
         st.write("### Resultados:")
-        st.dataframe(df, use_container_width=True, hide_index=True)
+        # Exibe no site sem a aspa para ficar limpo
+        st.dataframe(df["GTIN-13 Gerado"].str.replace("'", ""), use_container_width=True, hide_index=True)
         
-        # Download
+        # O CSV mantém a aspa para o Excel reconhecer como texto
         csv = df.to_csv(index=False).encode('utf-8')
         st.download_button(
             label="📥 Baixar Planilha CSV",
@@ -81,5 +89,23 @@ with tab2:
             mime="text/csv"
         )
 
-# 3. Rodapé [cite: 1]
-st.markdown("""<style>.footer {position: fixed; left: 0; bottom: 10px; width: 100%; text-align: center; color: gray; font-size: 13px;}</style><div class="footer">Criado e pensado por Pedro Parra.</div>""", unsafe_allow_html=True)
+# 3. Rodapé Estilizado
+st.markdown(
+    """
+    <style>
+    .footer {
+        position: fixed;
+        left: 0;
+        bottom: 10px;
+        width: 100%;
+        text-align: center;
+        color: gray;
+        font-size: 13px;
+    }
+    </style>
+    <div class="footer">
+        Criado e pensado por Pedro Parra.
+    </div>
+    """,
+    unsafe_allow_html=True
+)
