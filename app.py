@@ -28,7 +28,6 @@ with tab1:
         st.success(f"Dígito Verificador: {digito}")
         st.code(gtin_completo)
         
-        # Função de cópia nativa do Streamlit
         if st.button("Copiar Código"):
             st.copy_to_clipboard(gtin_completo)
             st.toast("Copiado!", icon="✅")
@@ -63,24 +62,22 @@ with tab2:
         quantidade = st.number_input("Quantidade (Máx 100):", min_value=1, max_value=100, value=10)
 
     if st.button("Gerar Lote para Planilha"):
-        lista_para_df = []
+        lista_gtins = []
         
         for i in range(quantidade):
             sequencial = str(inicio_seq + i).zfill(4)
             base_12 = f"{prefixo_custom}{sequencial}"
             digito = calcular_digito_gtin(base_12)
             
-            # Adiciona a aspa simples para proteger o formato no Excel
-            codigo_com_protecao = f"'{base_12}{digito}"
-            lista_para_df.append(codigo_com_protecao)
+            # Gerando o código puro, sem a aspa de proteção
+            lista_gtins.append(f"{base_12}{digito}")
         
-        df = pd.DataFrame(lista_para_df, columns=["GTIN-13 Gerado"])
+        df = pd.DataFrame(lista_gtins, columns=["GTIN-13 Gerado"])
         
         st.write("### Resultados:")
-        # Exibe no site sem a aspa para ficar limpo
-        st.dataframe(df["GTIN-13 Gerado"].str.replace("'", ""), use_container_width=True, hide_index=True)
+        st.dataframe(df, use_container_width=True, hide_index=True)
         
-        # O CSV mantém a aspa para o Excel reconhecer como texto
+        # Download do CSV limpo
         csv = df.to_csv(index=False).encode('utf-8')
         st.download_button(
             label="📥 Baixar Planilha CSV",
@@ -89,7 +86,7 @@ with tab2:
             mime="text/csv"
         )
 
-# 3. Rodapé Estilizado
+# 3. Rodapé
 st.markdown(
     """
     <style>
